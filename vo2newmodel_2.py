@@ -117,7 +117,7 @@ shape[shape_indices] = "point"
 
 print "shape(acol) = {0}".format(np.shape(np.array(options.acol)))
 print "shape(bcol) = {0}".format(np.shape(np.array(options.bcol)))
-print acol
+print options.acol
 print "resolution = {0} [deg]".format(options.resolution)
 print "Number of point sources = {0}".format(len(shape[shape_indices]))
 print "Number of extended sources = {0}".format(len(shape[shape_indices != True]))
