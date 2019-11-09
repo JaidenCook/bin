@@ -8,7 +8,7 @@ start_time=`date +%s`
 pbeam_model=2016
 # reduce to find many sources 
 threshold=1
-resolution=1.2
+resolution=0.022 # Approximate 300 MHz psf major and minor axis size.
 
 # Read the options
 TEMP=`getopt -o a:b:c:d:e: --long input_dir:,output_dir:,obsid_list:,threshold:,chan: -- "$@"`
