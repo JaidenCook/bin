@@ -146,17 +146,6 @@ Model_format_3.py --obsid $obsid --freq $freq --delays $delays --catalogue $cata
 vo2newmodel_2.py --catalogue model_morecolumns_temp.vot --output skymodelformat.txt --freq $freq --fluxcol S_centralfreq_uncorrected --coeff apparent_poly_coeff \
 --acol a_wide --bcol b_wide --pacol pa_wide --point --resolution=$resolution
 
-parser.add_option('--acol',type="string", dest="acol",
-                    help="The name of the major axis column (default=a_wide).", default="a_wide")
-
-parser.add_option('--bcol',type="string", dest="bcol",
-                    help="The name of the minor axis column (default=b_wide).", default="b_wide")
-
-parser.add_option('--pacol',type="string", dest="pacol",
-                    help="The name of the position angle column (default=pa_wide).", default="pa_wide")
-
-
-
 # Remove .ms and .metafits files and PSF template images
 rm -rf $obsid.ms $obsid.metafits *.fits
 
