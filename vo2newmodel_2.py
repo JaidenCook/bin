@@ -112,12 +112,15 @@ shape.fill("gaussian")
 
 # Sources which have Major and Minor values below the psf are set as point sources.
 # a and b columns need to wrapped in nan_to_num do to row entries which have nan values.
-shape_indices = np.logical_or(np.nan_to_num(np.array(options.acol)) < options.resolution, np.nan_to_num(np.array(options.bcol)) < options.resolution)
+shape_indices = np.logical_or(np.nan_to_num(np.array(data[options.acol])) < options.resolution, np.nan_to_num(np.array(data[options.bcol])) < options.resolution)
 shape[shape_indices] = "point"
 
-print "shape(acol) = {0}".format(np.shape(np.array(options.acol)))
-print "shape(bcol) = {0}".format(np.shape(np.array(options.bcol)))
-print options.acol
+data[options.acol], data[options.bcol]
+
+# Not actually accepting the column, need to specify it.
+print "shape(acol) = {0}".format(np.shape(np.array(data[options.acol])))
+print "shape(bcol) = {0}".format(np.shape(np.array(data[options.bcol])))
+print data[options.acol][:5]
 print "resolution = {0} [deg]".format(options.resolution)
 print "Number of point sources = {0}".format(len(shape[shape_indices]))
 print "Number of extended sources = {0}".format(len(shape[shape_indices != True]))
