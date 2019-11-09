@@ -102,10 +102,18 @@ shape = np.empty(shape=data[options.namecol].shape,dtype="S8")
 shape.fill("gaussian")
 
 # Need to get proper resolution.
-if options.point:
-   srcsize = data[options.intflux]/data[options.peakflux]
-   indices = np.where(srcsize<options.resolution)
-   shape[indices] = "point"
+#if options.point:
+#   #srcsize = data[options.intflux]/data[options.peakflux]
+#    'a_wide', 'b_wide'
+#
+#   indices = np.where(srcsize<options.resolution)
+#   shape[indices] = "point"
+
+
+# Sources which have Major and Minor values below the psf are set as point sources.
+# a and b columns need to wrapped in nan_to_num do to row entries which have nan values.
+shape_indices = np.logical_or(np.nan_to_num(options.acol) < options.resolution, np.nan_to_num(options.bcol) < options.resolution)
+shape[shape_indices] = "point"
 
 # Want to sort this so the columns are reordered.
 coeff_flippd =  np.flip(np.array(data[options.coeff]),axis=1)
@@ -137,7 +145,7 @@ with open(options.output,"a") as f:
 
         if shape=="gaussian":
 
-            f.write(pformatter.format(Name=Name,RA=RA,Dec=Dec,flux=flux,coeff_flippd=coeff_flippd,\
+            f.write(pformatter.format(Name=Name,RA=RA,Dec=Dec,a=acol,b=bcol,pa=pacol,flux=flux,coeff_flippd=coeff_flippd,\
 freq=options.freq,shape=shape))
 
         elif shape=="point":
