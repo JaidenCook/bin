@@ -145,7 +145,7 @@ with open(options.output,"a") as f:
 
         if shape=="gaussian":
 
-            f.write(pformatter.format(Name=Name,RA=RA,Dec=Dec,a=acol,b=bcol,pa=pacol,flux=flux,coeff_flippd=coeff_flippd,\
+            f.write(pformatter.format(Name=Name,RA=RA,Dec=Dec,a=a,b=b,pa=pa,flux=flux,coeff_flippd=coeff_flippd,\
 freq=options.freq,shape=shape))
 
         elif shape=="point":
