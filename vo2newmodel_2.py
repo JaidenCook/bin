@@ -112,8 +112,11 @@ shape.fill("gaussian")
 
 # Sources which have Major and Minor values below the psf are set as point sources.
 # a and b columns need to wrapped in nan_to_num do to row entries which have nan values.
-shape_indices = np.logical_or(np.nan_to_num(options.acol) < options.resolution, np.nan_to_num(options.bcol) < options.resolution)
+shape_indices = np.logical_or(np.nan_to_num(np.array(options.acol)) < options.resolution, np.nan_to_num(np.array(options.bcol)) < options.resolution)
 shape[shape_indices] = "point"
+
+print "Number of point sources = {0}".format(len(shape[shape_indices]))
+print "Number of extended sources = {0}".format(len(shape[shape_indices != True]))
 
 # Want to sort this so the columns are reordered.
 coeff_flippd =  np.flip(np.array(data[options.coeff]),axis=1)
