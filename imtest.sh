@@ -259,9 +259,11 @@ fi
 
 
 # This works, within a time of 4ish hours, depends on the number of w-terms.
-wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 \
--auto-mask 10.0 -pol I -weight uniform -scale 82asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
+#wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 \
+#-auto-mask 10.0 -pol I -weight uniform -scale 82asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
 
+wsclean -name ${obsid}_deeper -size 10000 10000 -niter 30000 -auto-threshold 8.0 \
+-auto-mask 10.0 -pol I -weight uniform -scale 41asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
 
 
 
