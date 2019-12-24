@@ -1,33 +1,13 @@
-#!/bin/bash -l
+#!/bin/bash
 
 # Calibrate data using GLEAM year 1 catalogue
-
-#SBATCH --account=pawsey0272
-#SBATCH --partition=workq
-#SBATCH --time=3:00:00
-#SBATCH --nodes=1
-##SBATCH --mem=60gb
-#SBATCH --output=/astro/mwasci/jhue_cook/data/cal_year1.o%A_%a
-#SBATCH --error=/astro/mwasci/jhue_cook/data/cal_year1.e%A_%a
-#SBATCH --export=NONE
-#SBATCH --array=1,21
-
 start_time=`date +%s`
-
-# Set aprun
-#aprun="aprun -n 1 -d 20 -q "
-#aprunsingle="aprun -n 1 -d 1 -q "
-# now use and set srun
-srun=" "
-#srun -T 20
-srunsinge=srun
 
 # Set default values for optional parameters
 flag=yes
-obsidcal=0
 
 # Read the options
-TEMP=`getopt -o a:b:c:d:e:f:g --long input_data:,input_model:,output_dir:,obsid_list:,chan:,obsidcal:,noflag -- "$@"`
+TEMP=`getopt -o a:b:c:d:e:f --long input_data:,cal_dir:,obsid_list:,cal_obsid:,chan:,noflag -- "$@"`
 eval set -- "$TEMP"
 
 # Extract options and their arguments into variables
@@ -38,32 +18,27 @@ while true ; do
                 "") shift 2 ;;
                 *) input_data=$2 ; shift 2 ;;
             esac ;;
-        -b|--input_model) # input directory containing model for calibration (required argument)
+        -b|--cal_dir) # input directory containing calibrator solutions.
             case "$2" in
                 "") shift 2 ;;
-                *) input_model=$2 ; shift 2 ;;
+                *) cal_dir=$2 ; shift 2 ;;
             esac ;;
-        -c|--output_dir) # output directory (required argument)
-            case "$2" in
-                "") shift 2 ;;
-                *) output_dir=$2 ; shift 2 ;;
-            esac ;;
-        -d|--obsid_list) # obsID list (required argument)
+        -c|--obsid_list) # obsID list (required argument)
             case "$2" in
                 "") shift 2 ;;
                 *) obsid_list=$2 ; shift 2 ;;
+            esac ;;
+        -d|--cal_obsid) # obsID list (required argument)
+            case "$2" in
+                "") shift 2 ;;
+                *) cal_obsid=$2 ; shift 2 ;;
             esac ;;
         -e|--chan) # channel (required argument); set to 69, 93, 121, 145 or 169
             case "$2" in
                 "") shift 2 ;;
                 *) chan=$2 ; shift 2 ;;
             esac ;;
-        -f|--obsidcal) # Calibrator OBSID (required argument)
-            case "$2" in
-                "") shift 2 ;;
-                *) obsidcal=$2 ; shift 2 ;;
-            esac ;;
-        -g|--noflag) flag=no ; shift ;; # do not flag tiles in obsid_list (no argument, acts as flag)
+        -f|--noflag) flag=no ; shift ;; # do not flag tiles in obsid_list (no argument, acts as flag)
         --) shift ; break ;;
         *) echo "Internal error!" ; exit 1 ;;
     esac
@@ -73,14 +48,17 @@ done
 if [ -z "$input_data" ]; then
   echo "Error: input_data not specified. Aborting."
   exit 1
-elif [ -z "$input_model" ]; then
-  echo "Error: input_model not specified. Aborting."
+elif [ -z "$cal_dir" ]; then
+  echo "Error: cal_dir not specified. Aborting."
   exit 1
-elif [ -z "$output_dir" ]; then
-  echo "Error: output_dir not specified. Aborting."
+elif [ -z "$cal_dir" ]; then
+  echo "Error: cal_dir not specified. Aborting."
   exit 1
 elif [ -z "$obsid_list" ]; then
   echo "Error: obsid_list not specified. Aborting."
+  exit 1
+elif [ -z "$cal_obsid" ]; then
+  echo "Error: No calibrator OBSID given, aborting script!"
   exit 1
 elif [ -z "$chan" ]; then
   echo "Error: chan not specified. Aborting."
@@ -94,53 +72,39 @@ if [ $chan != "69" ] && [ $chan != "93" ] && [ $chan != "121" ] && [ $chan != "1
 fi
 
 # Set obsid
-obsid=`sed "${SLURM_ARRAY_TASK_ID}q;d" $obsid_list | awk '{print $1}'`
-
-# Set other input parameters
-imsize=5000 # a quick image is made after calibration as a sanity check; imsize is the size of this image
-#robust="-1.0"
-robust="0.7"
-ncpus=20
+#obsid=`sed "${SLURM_ARRAY_TASK_ID}q;d" $obsid_list | awk '{print $1}'`
+obsid=` awk '{print $1}' $obsid_list`
 
 # Create output directory
-if [ ! -e $output_dir ]; then
-  mkdir $output_dir
+if [ ! -e $cal_dir ]; then
+  mkdir $cal_dir
 fi
 
 # Create snapshot directory
 # remove 4 hashes below
-if [ -e $output_dir/$obsid ]; then
-  rm -rf $output_dir/$obsid
+if [ -e $cal_dir/$obsid ]; then
+  rm -rf $cal_dir/$obsid
 fi
-mkdir $output_dir/$obsid
+mkdir $cal_dir/$obsid
 #cd $input_data/$obsid/
-cd $output_dir/$obsid
+cd $cal_dir/$obsid
 
 # Write input parameters to file for record
 cat >> input_parameters_cal_year1.txt <<EOPAR
 input_data = $input_data
-input_model = $input_model
-output_dir = $output_dir
+cal_dir = $cal_dir
 obsid_list = $obsid_list
-obsidcal = $obsidcal
 chan = $chan
 flag = $flag
-imsize = $imsize
 robust = $robust
-ncpus = $ncpus
 EOPAR
 
-# Set pixel size
-scale=`echo "0.55 / $chan" | bc -l`
-scale=${scale:0:8}
-#scale=0.04
-
 # Copy measurement set, metafits file and sky model to output directory
-if [ -e $input_data/$obsid/$obsid.ms ] && [ -e $input_data/$obsid/$obsid.metafits ] && [ -e $input_model/$obsid/skymodelformat.txt ]; then
+if [ -e $input_data/$obsid/$obsid.ms ] && [ -e $input_data/$obsid/$obsid.metafits ]; then
 # kluge to refresh stale file handles
     cd $input_data/$obsid/
-    cd $output_dir/$obsid
-    cp -r $input_data/$obsid/$obsid.ms $input_data/$obsid/$obsid.metafits $input_model/$obsid/skymodelformat.txt .
+    cd $cal_dir/$obsid
+    cp -r $input_data/$obsid/$obsid.ms $input_data/$obsid/$obsid.metafits .
 else
     echo "Error: input files are missing. Aborting."
     exit 1
@@ -150,7 +114,9 @@ fi
 
 # Flag tiles if required
 if [ $flag == "yes" ]; then
-  tile_list=`sed "${SLURM_ARRAY_TASK_ID}q;d" $obsid_list | awk '{print $2}'`
+  #tile_list=`sed "${SLURM_ARRAY_TASK_ID}q;d" $obsid_list | awk '{print $2}'`
+  tile_list=` awk '{print $2}' $obsid_list`
+  echo $tile_list
   if [ -z "$tile_list" ]; then
     echo "No tiles to flag for snapshot $obsid"
   elif [ $tile_list == "none" ]; then
@@ -170,70 +136,45 @@ if [ $flag == "yes" ]; then
   fi
 fi
 
-# determin max uv
-maxuvm=887250/$chan
+################################################################################
+#Calibration testing begin.
+################################################################################
+# flagging data:
 
-# Conditional statement deciding whether to cal or transfer cal solutions.
-if [ $obsidcal -ne 0 ]; then
-  cp $MYDATA/cal/$obsidcal/${obsidcal}_solutions.bin $MYDATA/cal/$obsid_list
-  # Apply the solutions
-  # edit out for now
-  echo "Applying $obsidcal calibration solutions to $obsid"
-  $srun applysolutions $obsid.ms ${obsidcal}_solutions.bin
+echo "Flagging RFI and first three coarse channels."
 
-  # Plot phase and amplitude calibration solutions
-  echo "Doing plot of phase and amplitude"
-  $srunsingle aocal_plot.py --refant=127 ${obsidcal}_solutions.bin
-  
-  # Re-plot amplitude calibration solutions, this time setting maximum of y axis to 100 and 10000
-  for amp in 100 10000; do
-    mkdir t
-    $srunsingle aocal_plot.py --refant=127 --outdir=./t --amp_max=$amp ${obsidcal}_solutions.bin
-    mv ./t/${obsidcal}_solutions_amp.png ${obsid}_solutions_amp_max${amp}.png
-    rm -rf t
-  done
-else
-  echo "Applying CALIBRATE to determine $obsid calibration solutions"
-  $run calibrate -m skymodelformat.txt -minuv 60 -maxuv $maxuvm -beam-on-source $obsid.ms ${obsid}_solutions.bin
+cmd='["mode='clip' datacolumn='DATA' spw='0:0~95' clipminmax=[0.0,0.0] clipzeros=True","mode='rflag' datacolumn='DATA' timedevscale=4.0"]'
+echo "flagdata(vis='${obsid}.ms',mode='list',inpfile=${cmd},action='apply')"
+casa --nologger -c "flagdata(vis='${obsid}.ms',mode='list',inpfile=${cmd},action='apply')"
 
-  # Plot phase and amplitude calibration solutions
-  echo "Doing plot of phase and amplitude"
-  $srunsingle aocal_plot.py --refant=127 ${obsid}_solutions.bin
-  
-  # Re-plot amplitude calibration solutions, this time setting maximum of y axis to 100 and 10000
-  for amp in 100 10000; do
-    mkdir t
-    $srunsingle aocal_plot.py --refant=127 --outdir=./t --amp_max=$amp ${obsid}_solutions.bin
-    mv ./t/${obsid}_solutions_amp.png ${obsid}_solutions_amp_max${amp}.png
-    rm -rf t
-  done
-fi
+# Apply the solutions
+echo "Transferring calibration solutions from $cal_obsid to $obsid"
+applysolutions $obsid.ms $cal_dir/${cal_obsid}/${cal_obsid}_solutions.bin
 
-# Really fast clean
-echo "Doing a very fast clean (skipping"
-# added Gausian tapering: 75"  (per J Cook)
-#$srun wsclean -name ${obsid}_quick -size $imsize $imsize -niter 4000 -threshold 0.01 -pol xx,yy,xy,yx -weight briggs $robust -taper-gaussian 75 -scale $scale -stop-negative -small-inversion -join-polarizations -j $ncpus $obsid.ms
-$srun wsclean -name ${obsid}_quick -size $imsize $imsize -niter 4000 -threshold 0.01 -pol xx,yy,xy,yx -weight briggs $robust -scale $scale -stop-negative -small-inversion -join-polarizations -j $ncpus $obsid.ms
+# Further flagging RFI.
+aoflagger -v -column CORRECTED_DATA $obsid.ms
 
-# Plot phase and amplitude calibration solutions
-echo "Doing plot of phase and amplitude"
-$srunsingle aocal_plot.py --refant=127 ${obsid}_solutions.bin
+## Plot phase and amplitude calibration solutions
+#echo "Doing plot of phase and amplitude"
+#aocal_plot.py --refant=127 ${obsid}_solutions.bin
 
-# Re-plot amplitude calibration solutions, this time setting maximum of y axis to 100 and 10000
-for amp in 100 10000; do
-  mkdir t
-  $srunsingle aocal_plot.py --refant=127 --outdir=./t --amp_max=$amp ${obsid}_solutions.bin
-  mv ./t/${obsid}_solutions_amp.png ${obsid}_solutions_amp_max${amp}.png
-  rm -rf t
-done
+## Re-plot amplitude calibration solutions, this time setting maximum of y axis to 100 and 10000
+#for amp in 100 10000; do
+#  mkdir t
+#  aocal_plot.py --refant=127 --outdir=./t --amp_max=$amp ${obsid}_solutions.bin
+#  mv ./t/${obsid}_solutions_amp.png ${obsid}_solutions_amp_max${amp}.png
+#  rm -rf t
+#done
 
 # -------------------------------------------------------------
+
+casa --nologger -c "plotms(vis='${obsid}.ms',xaxis='frequency',yaxis='amp',correlation='xx,yy',ydatacolumn='corrected',coloraxis='spw',plotfile='amp_vfreq_{0}_corrected.png'.format(${obsid}),showgui=False,overwrite=True)"
 
 end_time=`date +%s`
 duration=`echo "$end_time-$start_time" | bc -l`
 echo "Total runtime = $duration sec"
 
 # Move output and error files to output directory
-mv $MYDATA/cal_year1.o${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} $MYDATA/cal_year1.e${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} .
+#mv $MYDATA/cal_year1.o${obsid} $MYDATA/cal_year1.e${obsid} .
 
 exit 0

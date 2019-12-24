@@ -233,37 +233,48 @@ if [ $flag == "yes" ]; then
 fi
 
 
+# determin max uv
+maxuvm=887250/$chan
+
+mwapath="/home/jaidencook/.local/lib/python2.7/site-packages/mwa_pb/data/"
+
 # Testing the imaging:
 #
-# Using -apply beam to pb correct the image.
 #
-# Will trial selfcal later:
-#wsclean -name ${obsid}_deeper -size $imsize $imsize -niter $niter -auto-threshold $sigma_final \
-#-auto-mask $sigma_mask -apply-primary-beam -pol XX,YY,XY,YX -weight briggs $robust -scale ${scale} -abs-mem $absmem \
-#-join-polarizations -j $ncpus -mgain 0.95 -channels-out $nchan $minuv $multiscale $obsid.ms
-
-#wsclean -name ${obsid}_deeper -size 5000 5000 -niter 300000 -auto-threshold 1.0 \
-#-auto-mask 3.0 -apply-primary-beam -pol XX,YY,XY,YX -weight uniform -scale 0.04 -abs-mem 31 \
-#-join-polarizations -j 12 -mgain 0.95 -channels-out 4 -join-channels -minuv-l 60 -multiscale  $obsid.ms
-
-#wsclean -name ${obsid}_deeper -size 3000 3000 -niter 30000 -auto-threshold 8.0 \
-#-auto-mask 10.0 -pol XX,YY,XY,YX -weight uniform -scale 0.03 -abs-mem 31 \
-#-join-polarizations -j 12 -mgain 0.95 -channels-out 4 -join-channels -minuv-l 60 -multiscale  $obsid.ms
-
-# Setting scale using asec instead of degrees.
-#wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 \
-#-auto-mask 10.0 -pol XX,YY,XY,YX -weight uniform -scale 82asec -abs-mem 31 \
-#-join-polarizations -j 12 -mgain 0.95 -channels-out 4 -join-channels -minuv-l 60 -multiscale  $obsid.ms
-
 # Put thresholds up to 10 sigma. Keep pushing it down until we find an optimal threshold.
-
-
+#
+#
 # This works, within a time of 4ish hours, depends on the number of w-terms.
-#wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 \
-#-auto-mask 10.0 -pol I -weight uniform -scale 82asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
+#wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 -auto-mask 10.0 -pol I -weight uniform \
+#-scale 82asec -abs-mem 31 -j 12 -apply-primary-beam -mwa-path $mwapath -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
 
-wsclean -name ${obsid}_deeper -size 10000 10000 -niter 30000 -auto-threshold 8.0 \
--auto-mask 10.0 -pol I -weight uniform -scale 41asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
+chgcentre -zenith ${obsid}.ms
 
+wsclean -name ${obsid}_deeper -size 5000 5000 -niter 30000 -auto-threshold 8.0 -auto-mask 10.0 -pol I -weight uniform \
+-scale 82asec -abs-mem 31 -j 12 -apply-primary-beam -mwa-path $mwapath -mgain 0.85 -minuv-l 60 -taper-gaussian 4amin $obsid.ms
+
+#
+#
+# Note:
+#
+# Can use a smaller image, with a smaller max UV.
+#
+#wsclean -name ${obsid}_deeper -size 10000 10000 -niter 30000 -auto-threshold 8.0 \
+#-auto-mask 10.0 -pol I -weight uniform -scale 41asec -abs-mem 31 -j 12 -mgain 0.95 -minuv-l 60 -multiscale  $obsid.ms
+
+# wsclean adds the model to the ms data set itself, so calibrate will operate using that new model column in the ms
+# dataset.
+
+# Performing self cal:
+calibrate -absmem 31 -minuv 60 $obsid.ms ${obsid}_solutions.bin
+
+# Apply the solutions
+# edit out for now
+echo "Applying solutions to  $obsid"
+applysolutions $obsid.ms ${obsid}_solutions.bin
+
+# Plot phase and amplitude calibration solutions
+echo "Doing plot of phase and amplitude"
+aocal_plot.py --refant=127 ${obsid}_solutions.bin
 
 

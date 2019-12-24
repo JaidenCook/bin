@@ -2,7 +2,7 @@
 
 __author__ = "Jaiden Cook"
 __credits__ = ["Jaiden Cook"]
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
@@ -593,7 +593,7 @@ def OOF(Nu,Beam_arr,px_arr,figcond=False,Zen=None,theta=None,poly_co_list=None):
 			# When cond = False return only the order array.
 			return Order_array
 
-def BOOF(Chisqd_arr,k_vec,N_vec):
+def BOOF(Chisqd_arr,k_vec,N_vec,dBIC_thresh,BICcond=False):
 	"""
 	The Baysian Information Criterion (BIC) Optimal Order Function (BOOF):
 	This calculates the optimal order polynomial fit for N_sources, where N_sources is the length of the
@@ -607,8 +607,15 @@ def BOOF(Chisqd_arr,k_vec,N_vec):
 
 	Args:
 	Chidqd_arr : array_like; Array which contains the chisquares value for each polynomial fit.
-	k_vec : vector_like; Vector which contains thenumber of parameters per polynomial fit.
+	k_vec : vector_like; Vector which contains the number of parameters per polynomial fit.
 	N_vec : vector_like; Vector which contains the number of fitted data points per source.
+	dBIC_Thres : float_like; Delta BIC threshold above which the minimum BIC corresponding to the prefered
+	model is significant. If dBIC values of other models are all below this threshold, then the model with
+	the least number of parameters is chosen. Typically this value is 2-6. 
+	BICcond : Boolean; If False then only the minimum order vector is returned, if True then the BIC_arr is
+	also returned.
+
+	# Future versions will incorporate a single source example.
 	"""
 
 	# Defining the k*ln(N) array for the BIC:
@@ -617,11 +624,51 @@ def BOOF(Chisqd_arr,k_vec,N_vec):
 	# Calculating the BIC:
 	BIC_arr = Chisqd_arr + k_logN_arr
 
-	# Specifying the optimal order:
-	Order_vec = np.array([k_vec[np.argmin(BIC_arr[i,:][BIC_arr[i,:] > 0.0])] for i in range(len(N_vec))]) - 1
+	# Will index this later to determine the minimum order.
+	k_vec_arr = np.ones([len(N_vec),len(k_vec)])*k_vec
 
-	return Order_vec
+	# Finding the minimum BIC value, and the corresponding index vector:
+	# Setting all zero values to large numbers for indexing purposes.
+	BIC_arr[BIC_arr == 0.0] = 1e+12
 
+	# Vector of the minimum BIC values:
+	min_BIC_vec = np.min(BIC_arr, axis=1)
+	
+	# The delta-BIC array, determined relative to the minimum BIC value:
+	dBIC_arr = BIC_arr - min_BIC_vec[:,None]
+
+	# Manipulating the array for indexing purposes:
+	dBIC_arr[dBIC_arr >= dBIC_thresh] = dBIC_thresh
+	dBIC_arr[np.logical_and(dBIC_arr > 0.0, dBIC_arr < dBIC_thresh)] = 1.0 #This step might not be necessary.
+
+	# Summing the dBIC values:
+	dBIC_sum = np.sum(dBIC_arr,axis=1)
+
+	# Where the chosen order is the clearly the best choice:
+	min_BIC_True = np.mod(dBIC_sum,dBIC_thresh) == 0.0
+
+	# Where the first model/order is clearly the best choice:
+	# We should prefer models with less parameters:
+	First_BIC_True = dBIC_arr[:,0] == 0.0
+
+	# The other cases where there is no clear optimal order:
+	Other_BIC_True = np.logical_or(First_BIC_True,min_BIC_True) == False
+
+	min_dBIC_ind = np.argmin(dBIC_arr,axis=1)# min dBIC, or where dBIC == 0.
+
+	# In cases where there is no clear significant model, choose the one with less parameters.
+	min_dBIC_ind[Other_BIC_True] = min_dBIC_ind[Other_BIC_True] - 1
+
+	# Determining the optimally fit order for each source.
+	Order_vec = k_vec[min_dBIC_ind[:,None]] - 1
+
+	if BICcond != False:
+		# The case where the user wants to return the BIC array.
+		return Order_vec, BIC_arr
+
+	else:
+		# The case where the user just wants the order array.
+		return Order_vec
 
 if __name__ == "__main__":
 

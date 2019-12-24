@@ -158,6 +158,16 @@ echo "Running calibrate on  $obsid"
 ################################################################################
 #Calibration testing begin.
 ################################################################################
+# flagging data:
+
+
+cmd='["mode='rflag' datacolumn='DATA' timedevscale=4.0", "mode='clip' datacolumn='DATA' spw='0:0~95' clipminmax=[0.0,0.0] clipzeros=True"]'
+echo "flagdata(vis='vis',mode='list',inpfile=${cmd},action='apply')"
+casa --nologger -c "flagdata(vis='${obsid}.ms',mode='list',inpfile=${cmd},action='apply')"
+echo "Plotting DATA column amp vs frequency solutions!"
+casa --nologger -c "plotms(vis='${obsid}.ms',xaxis='frequency',yaxis='amp',correlation='xx,yy',ydatacolumn='data',coloraxis='spw',plotfile='amp_vfreq_${obsid}_data-tcrop-rflag-clip-og.png',showgui=False,overwrite=True)"
+echo "Running CALIBRATE!"
+# Once the RFI has been flagged we can calibrate:
 
 # This method will hopefully take a sky model and apply the beam across the bandwidth for each source.
 #calibrate -m skymodelformat.txt -minuv 60 -maxuv $maxuvm -applybeam $obsid.ms ${obsid}_solutions.bin
@@ -174,15 +184,24 @@ calibrate -m skymodelformat.txt -absmem $mem -minuv 60 -maxuv $maxuvm $obsid.ms 
 
 # Apply the solutions
 # edit out for now
+
 echo "Applying solutions to  $obsid"
 applysolutions $obsid.ms ${obsid}_solutions.bin
 
-# Really fast clean
-echo "Doing a very fast clean"
-# added Gausian tapering: 75"  (per J Cook)
+# Before aoflagger.
+echo "Plotting CORRECTED_DATA column amp vs frequency solutions!"
+casa --nologger -c "plotms(vis='${obsid}.ms',xaxis='frequency',yaxis='amp',correlation='xx,yy',ydatacolumn='corrected',coloraxis='spw',plotfile='amp_vfreq_${obsid}_corrected-og.png',showgui=False,overwrite=True)"
 
-#$srun wsclean -name ${obsid}_quick -size $imsize $imsize -niter 4000 -threshold 0.01 -pol xx,yy,xy,yx -weight briggs $robust -taper-gaussian 75 -scale $scale -stop-negative -small-inversion -join-polarizations -j $ncpus $obsid.ms
-#wsclean -name ${obsid}_quick -size $imsize $imsize -niter 4000 -threshold 0.01 -pol xx,yy,xy,yx -weight briggs $robust -scale $scale -stop-negative -small-inversion -join-polarizations -j $ncpus $obsid.ms
+
+casa --nologger -c "flagdata(vis='${obsid}.ms',mode='rflag',datacolumn='CORRECTED',timedevscale=4.0,action='apply')"
+# Further flagging RFI.
+#aoflagger -v -column CORRECTED_DATA $obsid.ms
+
+# Might skip the aoflagger step, since it might reset the flags.
+
+echo "Plotting DATA column amp vs frequency solutions!"
+echo "Testing to see if aoflagger resets the solutions!"
+casa --nologger -c "plotms(vis='${obsid}.ms',xaxis='frequency',yaxis='amp',correlation='xx,yy',ydatacolumn='data',coloraxis='spw',plotfile='amp_vfreq_${obsid}_data-tcrop-rflag-clip.png',showgui=False,overwrite=True)"
 
 # Plot phase and amplitude calibration solutions
 echo "Doing plot of phase and amplitude"
@@ -196,6 +215,9 @@ for amp in 100 10000; do
   rm -rf t
 done
 
+echo "Plotting CORRECTED_DATA column amp vs frequency solutions!"
+casa --nologger -c "plotms(vis='${obsid}.ms',xaxis='frequency',yaxis='amp',correlation='xx,yy',ydatacolumn='corrected',coloraxis='spw',plotfile='amp_vfreq_${obsid}_corrected.png',showgui=False,overwrite=True)"
+
 # -------------------------------------------------------------
 
 end_time=`date +%s`
@@ -203,6 +225,6 @@ duration=`echo "$end_time-$start_time" | bc -l`
 echo "Total runtime = $duration sec"
 
 # Move output and error files to output directory
-mv $MYDATA/cal_year1.o${obsid} $MYDATA/cal_year1.e${obsid} .
+#mv $MYDATA/cal_year1.o${obsid} $MYDATA/cal_year1.e${obsid} .
 
 exit 0
